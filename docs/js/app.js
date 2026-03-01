@@ -8,23 +8,42 @@ import { initTimeline, currentPeriod } from './timeline.js';
 // Pre-loaded history lookup (populated on boot)
 let _history = {};
 
-// ── NDVI colour ramp ─────────────────────────────────────────
-function ndviColor(val) {
-  if (val === null || val === undefined) return '#30363d';
-  if (val < 0.0)  return '#d73027';
-  if (val < 0.1)  return '#f46d43';
-  if (val < 0.2)  return '#fdae61';
-  if (val < 0.3)  return '#fee090';
-  if (val < 0.4)  return '#a6d96a';
-  if (val < 0.5)  return '#66bd63';
-  if (val < 0.6)  return '#1a9850';
-  return '#006837';
+// ── Normalised colour ramp (adapts to actual data range each period) ─────────
+// red (low) → orange → yellow → yellow-green → dark green (high)
+const COLOR_STOPS = [
+  [0.00, [215,  48,  39]],  // #d73027
+  [0.25, [244, 109,  67]],  // #f46d43
+  [0.50, [254, 224, 144]],  // #fee090
+  [0.75, [166, 217, 106]],  // #a6d96a
+  [1.00, [  0, 104,  55]],  // #006837
+];
+
+let _ndviMin = 0, _ndviMax = 1;
+
+function lerpColor(t) {
+  t = Math.max(0, Math.min(1, t));
+  let lo = COLOR_STOPS[0], hi = COLOR_STOPS[COLOR_STOPS.length - 1];
+  for (let i = 0; i < COLOR_STOPS.length - 1; i++) {
+    if (t <= COLOR_STOPS[i + 1][0]) { lo = COLOR_STOPS[i]; hi = COLOR_STOPS[i + 1]; break; }
+  }
+  const seg = hi[0] - lo[0];
+  const u   = seg === 0 ? 0 : (t - lo[0]) / seg;
+  const r   = Math.round(lo[1][0] + u * (hi[1][0] - lo[1][0]));
+  const g   = Math.round(lo[1][1] + u * (hi[1][1] - lo[1][1]));
+  const b   = Math.round(lo[1][2] + u * (hi[1][2] - lo[1][2]));
+  return `rgb(${r},${g},${b})`;
+}
+
+function ndviNorm(val) {
+  const range = _ndviMax - _ndviMin;
+  return range === 0 ? 0.5 : (val - _ndviMin) / range;
 }
 
 function ndviClass(val) {
   if (val === null || val === undefined) return '';
-  if (val >= 0.3) return 'green';
-  if (val >= 0.0) return 'orange';
+  const t = ndviNorm(val);
+  if (t >= 0.65) return 'green';
+  if (t >= 0.35) return 'orange';
   return 'red';
 }
 
@@ -64,13 +83,22 @@ let changesLayer = null;
 
 // ── Layer factories ──────────────────────────────────────────
 function buildNdviLayer(geojson) {
+  const vals = geojson.features.map(f => f.properties.ndvi_mean).filter(v => v != null);
+  _ndviMin = Math.min(...vals);
+  _ndviMax = Math.max(...vals);
+  const range = _ndviMax - _ndviMin || 1;
+
   return L.geoJSON(geojson, {
-    style: f => ({
-      fillColor:   ndviColor(f.properties.ndvi_mean),
-      fillOpacity: 0.78,
-      color:       'rgba(0,0,0,0.3)',
-      weight:      0.6,
-    }),
+    style: f => {
+      const v = f.properties.ndvi_mean;
+      const t = v == null ? 0.5 : (v - _ndviMin) / range;
+      return {
+        fillColor:   lerpColor(t),
+        fillOpacity: 0.78,
+        color:       'rgba(0,0,0,0.3)',
+        weight:      0.6,
+      };
+    },
     onEachFeature(f, layer) {
       const p = f.properties, v = p.ndvi_mean, cls = ndviClass(v);
       layer.bindTooltip(
@@ -161,6 +189,7 @@ async function renderLayers() {
       const n = ndviData.features?.length ?? 0;
       document.getElementById('ndvi-count').textContent = `${n} areas`;
       hCount.textContent = `${n}`;
+      updateLegend(_ndviMin, _ndviMax);
     }
     if (chgData && showChg) {
       changesLayer = buildChangesLayer(chgData).addTo(map);
@@ -190,6 +219,31 @@ function renderStats(s) {
       <div class="stat-mini"><div class="stat-mini-label">Min</div><div class="stat-mini-value">${fmt(s.city_min)}</div></div>
       <div class="stat-mini"><div class="stat-mini-label">Max</div><div class="stat-mini-value">${fmt(s.city_max)}</div></div>
     </div>`;
+}
+
+// ── Legend ────────────────────────────────────────────────────
+function updateLegend(min, max) {
+  const el = document.getElementById('ndvi-legend-content');
+  if (!el) return;
+  const range = max - min || 1;
+  // 5 tick marks from top (high) to bottom (low)
+  const ticks = [1, 0.75, 0.5, 0.25, 0].map(t => ({
+    color: lerpColor(t),
+    val:   (min + t * range).toFixed(4),
+    label: t === 1 ? 'highest' : t === 0 ? 'lowest' : '',
+  }));
+  el.innerHTML = `
+    <div class="legend-norm-wrap">
+      <div class="legend-norm-bar"></div>
+      <div class="legend-norm-ticks">
+        ${ticks.map(({ color, val, label }) => `
+          <div class="legend-norm-tick">
+            <div class="legend-norm-dot" style="background:${color}"></div>
+            <span class="legend-norm-val mono">${val}${label ? `<span class="legend-norm-tag">${label}</span>` : ''}</span>
+          </div>`).join('')}
+      </div>
+    </div>
+    <div class="legend-norm-note">Scale normalized to this period's range — colors show relative greenness across the 77 community areas</div>`;
 }
 
 // ── Detail panel ─────────────────────────────────────────────

@@ -523,3 +523,63 @@ input[type="range"]::-moz-range-thumb {
 .tt-val.green  { color: #3fb950; }
 .tt-val.orange { color: #f46d43; }
 .tt-val.red    { color: #d73027; }
+
+/* ── Normalised NDVI legend ───────────────────────────────── */
+.legend-norm-wrap {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+  margin-bottom: 8px;
+}
+.legend-norm-bar {
+  width: 12px;
+  min-height: 120px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: linear-gradient(to top,
+    rgb(215,48,39),
+    rgb(244,109,67),
+    rgb(254,224,144),
+    rgb(166,217,106),
+    rgb(0,104,55)
+  );
+}
+.legend-norm-ticks {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  flex: 1;
+  padding: 1px 0;
+}
+.legend-norm-tick {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.legend-norm-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  border: 1px solid rgba(255,255,255,0.15);
+}
+.legend-norm-val {
+  font-size: 10px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.legend-norm-tag {
+  font-size: 9px;
+  color: var(--text-subtle);
+  font-style: italic;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+.legend-norm-note {
+  font-size: 9.5px;
+  color: var(--text-subtle);
+  font-style: italic;
+  line-height: 1.4;
+  margin-top: 4px;
+}
