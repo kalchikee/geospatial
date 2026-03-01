@@ -1,0 +1,33 @@
+# Environment / secrets
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+dist/
+build/
+
+# Raster scratch data (large files — stored in Docker volume)
+/tmp/
+pipeline/tmp/
+*.tif
+*.geotiff
+*.jp2
+
+# Database dumps
+*.sql.gz
+*.dump
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+*.log

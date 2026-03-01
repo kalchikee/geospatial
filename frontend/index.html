@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chicago NDVI Monitor</title>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <!-- Loading overlay -->
+  <div id="loader" class="loader">
+    <div class="loader-inner">
+      <div class="loader-ring"></div>
+      <span class="loader-text">Fetching satellite data…</span>
+    </div>
+  </div>
+
+  <!-- Header -->
+  <header>
+    <div class="header-left">
+      <div class="header-logo">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
+          <path d="M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1l2.1-2.1M17 7l2.1-2.1"/>
+        </svg>
+      </div>
+      <div>
+        <div class="app-name">CHICAGO NDVI MONITOR</div>
+        <div class="app-sub">Urban Vegetation Intelligence &nbsp;·&nbsp; Sentinel-2 L2A &nbsp;·&nbsp; 10 m Resolution</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="header-meta">
+        <span class="meta-label">PERIOD</span>
+        <span class="meta-value mono" id="header-period">—</span>
+      </div>
+      <div class="header-meta">
+        <span class="meta-label">AREAS</span>
+        <span class="meta-value mono" id="header-count">—</span>
+      </div>
+      <span class="status-chip" id="status-chip">● LIVE</span>
+    </div>
+  </header>
+
+  <!-- Sidebar -->
+  <aside id="sidebar">
+
+    <!-- Source & Period -->
+    <div class="sidebar-section">
+      <div class="section-label">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+        SOURCE &amp; PERIOD
+      </div>
+
+      <div class="field-group">
+        <label class="field-label">Satellite Source</label>
+        <select id="source-select">
+          <option value="sentinel2">Sentinel-2 L2A</option>
+          <option value="landsat8">Landsat 8 OLI</option>
+          <option value="landsat9">Landsat 9 OLI-2</option>
+        </select>
+      </div>
+
+      <div class="field-group">
+        <label class="field-label">
+          Month &nbsp;<span class="mono" id="period-label">—</span>
+        </label>
+        <input type="range" id="period-slider" min="0" max="0" value="0" step="1" />
+      </div>
+
+      <div class="btn-row">
+        <button id="btn-prev" class="btn-sec">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+          Prev
+        </button>
+        <button id="btn-next" class="btn-sec">
+          Next
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Layers -->
+    <div class="sidebar-section">
+      <div class="section-label">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+        LAYERS
+      </div>
+
+      <div class="toggle-row">
+        <div class="toggle-meta">
+          <span class="toggle-label">NDVI Choropleth</span>
+          <span class="toggle-sub" id="ndvi-count">0 areas</span>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="toggle-ndvi" checked />
+          <span class="sw-track"></span>
+        </label>
+      </div>
+
+      <div class="toggle-row" style="margin-bottom:12px">
+        <div class="toggle-meta">
+          <span class="toggle-label">Change Flags</span>
+          <span class="toggle-sub" id="change-count">0 flagged</span>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="toggle-changes" checked />
+          <span class="sw-track"></span>
+        </label>
+      </div>
+
+      <div class="field-group">
+        <label class="field-label">Severity Filter</label>
+        <select id="severity-select">
+          <option value="">All flagged</option>
+          <option value="minor">Minor  (Δ &lt; −0.10)</option>
+          <option value="moderate">Moderate  (Δ &lt; −0.20)</option>
+          <option value="severe">Severe  (Δ &lt; −0.30)</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="sidebar-section">
+      <div class="section-label">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+        NDVI LEGEND
+      </div>
+
+      <div class="legend-ramp">
+        <div class="ramp-row"><div class="ramp-swatch" style="background:#006837"></div><span>≥ 0.5 &nbsp; Dense vegetation</span></div>
+        <div class="ramp-row"><div class="ramp-swatch" style="background:#1a9850"></div><span>0.4 – 0.5 &nbsp; High greenness</span></div>
+        <div class="ramp-row"><div class="ramp-swatch" style="background:#66bd63"></div><span>0.3 – 0.4 &nbsp; Moderate</span></div>
+        <div class="ramp-row"><div class="ramp-swatch" style="background:#a6d96a"></div><span>0.2 – 0.3 &nbsp; Sparse veg</span></div>
+        <div class="ramp-row"><div class="ramp-swatch" style="background:#fee090"></div><span>0.1 – 0.2 &nbsp; Bare / mixed</span></div>
+        <div class="ramp-row"><div class="ramp-swatch" style="background:#f46d43"></div><span>0.0 – 0.1 &nbsp; Very sparse</span></div>
+        <div class="ramp-row"><div class="ramp-swatch" style="background:#d73027"></div><span>&lt; 0.0 &nbsp; Non-vegetated</span></div>
+      </div>
+
+      <div class="flag-row">
+        <div class="flag-pill minor"><span class="pill-dot"></span>Minor</div>
+        <div class="flag-pill moderate"><span class="pill-dot"></span>Moderate</div>
+        <div class="flag-pill severe"><span class="pill-dot"></span>Severe</div>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="sidebar-section">
+      <div class="section-label">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        CITY STATISTICS
+      </div>
+      <div id="stats-content">
+        <div class="stats-empty">Select a period to view statistics</div>
+      </div>
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="footer-row">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M1 12h4M19 12h4"/></svg>
+        Element 84 Earth Search · AWS COGs
+      </div>
+      <div class="footer-row">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="12" rx="10" ry="4"/><path d="M2 12c0 4.4 4.5 8 10 8s10-3.6 10-8"/></svg>
+        PostGIS · EPSG:3435 · 10 m GSD
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- Map -->
+  <div id="map"></div>
+
+  <!-- Detail panel -->
+  <div id="detail-panel" class="hidden">
+    <div class="dp-header">
+      <div>
+        <div class="dp-name" id="detail-pin">—</div>
+        <div class="dp-sub" id="detail-address">—</div>
+      </div>
+      <button id="close-detail" class="icon-btn">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="dp-stats" id="detail-stats"></div>
+    <div class="dp-chart-label">NDVI Time Series</div>
+    <div class="dp-chart-wrap">
+      <canvas id="ndvi-chart"></canvas>
+    </div>
+  </div>
+
+  <script src="js/app.js" type="module"></script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+fastapi==0.111.0
+uvicorn[standard]==0.30.1
+psycopg2-binary==2.9.9
+geopandas==0.14.4
+shapely==2.0.4
+python-dotenv==1.0.1
