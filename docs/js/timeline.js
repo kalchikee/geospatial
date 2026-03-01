@@ -1,32 +1,39 @@
 /**
- * Timeline module — static version for GitHub Pages demo.
+ * Timeline module — manages the period slider and period list.
  *
- * Instead of fetching /periods from the API, this accepts a pre-built
- * periods array directly. All other logic is identical to the live version.
+ * Fetches available periods from GET /periods and populates a range slider.
+ * Exposes currentPeriod() for the main app layer to read.
+ * Calls renderCallback() whenever the selected period changes.
  */
 
-let _periods = [];
-let _current = 0;
+let _periods = [];   // [{period: "2024-07", source: "sentinel2"}, ...]
+let _current = 0;    // slider index
 
 export function currentPeriod() {
   return _periods[_current]?.period ?? null;
 }
 
-/**
- * @param {Array<{period: string, source: string}>} periods - pre-built list
- * @param {Function} renderCallback - called on period change
- */
-export function initTimeline(periods, renderCallback) {
-  // Deduplicate by period string (one entry per month regardless of source)
+export async function initTimeline(apiBase, renderCallback) {
+  const res = await fetch(`${apiBase}/periods`);
+  if (!res.ok) {
+    console.warn('Could not load periods from API');
+    return;
+  }
+
+  const data = await res.json();
+
+  // Deduplicate by period string (keep first occurrence per period)
   const seen = new Set();
-  _periods = periods
-    .filter(d => { if (seen.has(d.period)) return false; seen.add(d.period); return true; })
-    .sort((a, b) => a.period.localeCompare(b.period)); // chronological
+  _periods = data.filter(d => {
+    if (seen.has(d.period)) return false;
+    seen.add(d.period);
+    return true;
+  }).reverse(); // chronological order
 
   const slider = document.getElementById('period-slider');
   slider.min = 0;
   slider.max = Math.max(0, _periods.length - 1);
-  slider.value = _periods.length - 1;
+  slider.value = _periods.length - 1;  // default: latest period
   _current = _periods.length - 1;
 
   _updateLabel();
@@ -55,6 +62,7 @@ export function initTimeline(periods, renderCallback) {
     }
   });
 
+  // Trigger initial render
   renderCallback();
 }
 
