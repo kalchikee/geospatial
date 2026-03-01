@@ -1,0 +1,1 @@
+{"period": "2023-05", "source": "sentinel2", "parcel_count": 77, "city_mean": -0.11726753246753246, "city_median": -0.1152, "city_min": -0.201, "city_max": -0.0613, "city_std": 0.028043173677096543, "high_veg_count": 0, "low_veg_count": 77}
